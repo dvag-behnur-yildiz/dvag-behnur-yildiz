@@ -1,7 +1,7 @@
 --SET PATH = 'T13VB';
 --SET SCHEMA = 'T13VB';
 
--- KYT-KNR ; TBAT0007 / TBAT0007
+-- KYT-KNR ; TBAT0007 / TBAT0008
 
 SELECT * FROM MAN; --Mitarbeiter Namen
 
@@ -38,8 +38,3 @@ SELECT * FROM KTOB; --Kontostände (tägliche Updates)
 SELECT * FROM PSEV; --Produktsparte -- Einheiten und Verdienste
 
 SELECT * FROM AST; --allgemeine Statistikdaten
-
-
-
-
-

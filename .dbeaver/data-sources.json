@@ -1,0 +1,49 @@
+{
+	"folders": {},
+	"connections": {
+		"db2_zos-19f7e70a72a-5c99f6a6cee1329e": {
+			"provider": "db2_zos",
+			"driver": "db2_zos",
+			"name": "BBH9/Entw.",
+			"save-password": true,
+			"virtual-model-id": "db2_zos-19f5b3d0570-5ae526a87c48d225",
+			"configuration": {
+				"host": "dvagsysg.id.dvag.com",
+				"port": "6015",
+				"database": "BBH9:sslConnection\u003dtrue;",
+				"url": "jdbc:db2://dvagsysg.id.dvag.com:6015/BBH9:sslConnection\u003dtrue;",
+				"configurationType": "MANUAL",
+				"type": "dev",
+				"closeIdleConnection": true,
+				"closeIdle": 18000,
+				"auth-model": "native",
+				"bootstrap": {
+					"defaultSchema": "BBH9"
+				}
+			},
+			"extensions": {
+				"ai.assistant": {
+					"confirmed": true,
+					"mcpEnabled": false
+				}
+			}
+		}
+	},
+	"connection-types": {
+		"dev": {
+			"name": "Development",
+			"color": "255,255,255",
+			"colorDark": "255,255,255",
+			"description": "Regular development database",
+			"auto-commit": true,
+			"confirm-execute": false,
+			"confirm-data-change": false,
+			"smart-commit": false,
+			"smart-commit-recover": true,
+			"auto-close-transactions": true,
+			"close-transactions-period": 1800,
+			"auto-close-connections": true,
+			"close-connections-period": 14400
+		}
+	}
+}

@@ -112,24 +112,70 @@ Jobskontrolle: per SDSF
 ### Job-Mini Aufgabe I003427.JCL101.CNTL(AUFGB1) 
     und Lösung liegen in Lib: I003427.JCL101.CNTL(JBMINI)
 ## Ein Pgm im Batch ausführen
-//STEP1 EXEC PGM=pgmName,PARM='pgmparameter'
+//Schritt1 EXEC PGM=pgmName,PARM='pgmparameter'
+PGM= Programm das ausgeführt werden soll
 ### EXEC-Karte mit Anwendungsprogramm
 * COND=     >> unter welcher Bedingung der Step nicht ausgeführt werden soll
 * REGION=   >> Mindest-Speicheranforderung des Steps
 * TIME=     >> maximale CPU-Zeit des Steps
 ### STEPLIB-DD-Karte
 Dateimanager will wissen wo er das Pgm finden soll.
-//DD-Name DD DISP='parallele Laufen der Prozesse erlaubt', DSN='Name einer PGM-Datei'
+//DD-Name DD DISP='parallele Laufen der Prozesse erlaubt',DSN='Path des PGMs'
 //STEPLIB DD DISP=SHR,DSN=TANJAS.TEST.PGMS
--- Aber auch existieren JOBLIB-DD-Karte --> Suchdefault f+r den ganzen Job
+-- Aber auch existieren JOBLIB-DD-Karte --> Suchdefault für den ganzen Job
 ### Concatenation: 1 DD-Name mehrere DSNs
 -- Limits: bei PO-Dateien (wie Lademodul-Bibliotheken) 16Dateien
 --          bei PS-Dateien (wie Datenfiles) 256Dateien
 //STEPLIB DD DISP=SHR,DSN=USERID.TEST.PGMS
 //        DD DISP=SHR,DSN=USERID2.TEST.PGMS
-
+### Programm-Test-Jobs
+//* ------------------- Batch-Programm ausfuehren ----------
+//PGTQ0012 EXEC GOBTCH,MBR=PGTQ0012,SYSKZ='1'
+//GO.MANDANT DD DISP=SHR,DSN=P110003.CGMAND.VK(CGMAND00)
+![Pgm-Test-Jobs_beiuns](image.png)
 ## Einführung in Dateiarten
+1. DSORG : Physical Sequential (PS) : eine Zeile nach anderer.
+2. DSORG: Partitioned Dataset (PDS/PDSE) : 
+    a. Datei (Bibliothek): enthält viele Sequentiale Datei die sich Member nennt.(Einzel-PS-Files)
+        DSN=MY.PDS.DATASET
+        DSN=MY.PDS.DATASET(BIRNE)
+      Benennung der DSN  
+    * klein-groß schreiben spielt keine Rolle.
+    * jeder qualifier dürfen max. 8-stellig sein. (alphanumerisch + Sonderzeichen($,#,§))
+    * max. 44 stellig inkl. Punkten
+    * Klammern und Stellen des Membernamens zählen dabei nicht mit.
+        DSN=quali1.quali2.quali3(&mydata1)
+LRECL: Satzfomrate : feste Satzlänge, variable Satzlänge     
+BLKSIZE: Lesen/Schreiben in Portionen: hat die Auswirkung auf die Geschwindigkeit.
+    Device
+    Track
+    BLKSIZE=O  >> fürs Device optimierte Blockgröße
+SPACE: Primary, Secondary(bildet extend dazu, wenn die Datei größer als vorreservierter Platz ist, max 16mals (PDSE 128) möglich)
+### VSAM(Virtual Storage Access Method)
+    GDG(Generation Data Group):
+    a. KSDK - Key sequential Dataset
+    b. ESDS - Enrty sequential Dataset
+    c. RRDS - Relative Record Dataset
+    d. LDS - Linear Dataset
 ## Dateien anlegen/löschen
+DD-Karte Minimum zur Dateianlage
+//ddname DD DSN=...,
+//          DISP=...,RECFM=...,LRECL=...,BLKSIZE=0,
+//          SPACE=...,MGMTCLAS=...
+
+### DSN: Dateinamen
+### DISP; Basis-Disposition: sollte nebenbei Prozesse laufen dürfen
+    a. (default) NEW : Neuanlage, DS noch nicht vorhanden. Solange dieser Job läuft, kann kein anderer Prozess das DS zugreifen.
+    b. OLD : exlusive Zuordnung zum aktuellen Prozess. DS vorhanden, kein anderer Prozess lesen/schreiben soll. >> typisch bei Schreibvorgänge
+    c. SHR : alle Prozesse, die das DS mit sHR ansprechen, dürfen sie nutzen. DS vorhanden, alle dürfen die Datei nutzen >> typisch wenn nur gelesen wird.
+    d. MOD : Bei Schreibvorgängen wird hinten an die Datei geschrieben. DS vorhanden, exkl. Zugriff. >> typisch wenn Dateien (zB. Log Dateien) fortgeschrieben werden.
+    DISP=([status][,nromal-termination-disp][,abnormal-termination-disp(Abend)])
+
+### RECFM: fest/variable Satzlänge, geblock/ungeblock
+### LRECL: Satzlänge
+###  BLKSIZE=0 : Device abgestimmte Blockgröße
+###  SPACE: primary/secondary Größenangaben
+###  MGMTCLAS; Management Classe: Sicherung, Lebenszeit...
 ## Conditionscode-Steuerung
 ## Utuilities
 ## Spezielle Pgms => spezielle Bedürfnisse

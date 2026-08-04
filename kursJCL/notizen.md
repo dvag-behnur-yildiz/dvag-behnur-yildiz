@@ -28,7 +28,7 @@ weitere Begriffe:
 -Sysplex/Plex : IBM-Großrechner-Cluster, das mehrere z/OS Systeme verbindet.
 -swapping
 ## Warum ist JCL so, wie sie ist?
-JCL - wie ein Spiel mit 3 Karten
+### JCL - wie ein Spiel mit 3 Karten
 1. Job-Statement
     a. Zugangsdaten
     b. gewünschter Rechner
@@ -84,9 +84,50 @@ PGM=XXX : Parameter des Stmts ohne trennende Blanks.
 ** nur Stellen 1-72 werden beachtet!
 ** Stellen 73-80 sind Kommentar
 ## Der kleinstmögliche Job
-
-
+### JCL-Syntax : (JCL Syntax Check : jck)
+//name JOB (accounting),username,CLASS=class,MSGCLASS=outclass BlaBla
+Identifier : // Jcl statements
+             //* kommentare
+             /*  Daten, die zu einem DD-Statement gehören 
+name : alphanumerisch (Länge 1-8) auch mit Sonderzeichen
+JOB : Operation Field
+(accounting) : Parameter/Operand, können mehrere hintereinander mit Komma geschrieben werden.
+CLASS : Job Klasse
+BlaBla : Comment
+ab CLASS bis Kommentara - Field : Keyword Parameters
+### JOB KARTEN BEISPIELE : 
+1. //ALPHA JOB 843,LINLEE,CLASS=F,MSGCLASS=A,MSGLEVEL=(1,1)
+2. //LOS JOB 1863 THIS IS THE THIRD JOB STATEMENT. << weil Jobname numerisch ist, brauchen wir hier keine Hochkommas >>
+3. //RACF1 JOB 'D83,123',USER=RAC01,PASSWORD=XYY
+### EXEC-Karte mit Minimal Parametern
+//SCHRITT1 EXEC PGM=IEFBR14
+Stepname: Schritt1
+Schlüsselwort: EXEC
+auszuführendes Pgm IEFBR14 = 2. zeiliges Assembler Pgm das returns nur RC 0.
++ ohne Pgm-Aufruf kein Zugang zum Datei-Manager
++ IEFBR14 wird verwendet wenn man nur Dateien anlegen/löschen möchte.
++ wenn man neue JCL erstellt wird, sollte per jem die Snytax geprüft werden.
++ JCL submitten : in Editor per sub Command
+Jobskontrolle: per SDSF
+### Job-Mini Aufgabe I003427.JCL101.CNTL(AUFGB1) 
+    und Lösung liegen in Lib: I003427.JCL101.CNTL(JBMINI)
 ## Ein Pgm im Batch ausführen
+//STEP1 EXEC PGM=pgmName,PARM='pgmparameter'
+### EXEC-Karte mit Anwendungsprogramm
+* COND=     >> unter welcher Bedingung der Step nicht ausgeführt werden soll
+* REGION=   >> Mindest-Speicheranforderung des Steps
+* TIME=     >> maximale CPU-Zeit des Steps
+### STEPLIB-DD-Karte
+Dateimanager will wissen wo er das Pgm finden soll.
+//DD-Name DD DISP='parallele Laufen der Prozesse erlaubt', DSN='Name einer PGM-Datei'
+//STEPLIB DD DISP=SHR,DSN=TANJAS.TEST.PGMS
+-- Aber auch existieren JOBLIB-DD-Karte --> Suchdefault f+r den ganzen Job
+### Concatenation: 1 DD-Name mehrere DSNs
+-- Limits: bei PO-Dateien (wie Lademodul-Bibliotheken) 16Dateien
+--          bei PS-Dateien (wie Datenfiles) 256Dateien
+//STEPLIB DD DISP=SHR,DSN=USERID.TEST.PGMS
+//        DD DISP=SHR,DSN=USERID2.TEST.PGMS
+
 ## Einführung in Dateiarten
 ## Dateien anlegen/löschen
 ## Conditionscode-Steuerung
@@ -94,3 +135,7 @@ PGM=XXX : Parameter des Stmts ohne trennende Blanks.
 ## Spezielle Pgms => spezielle Bedürfnisse
 ## Prodezuren verstehen
 ## Produktions-JCL, eine andere Welt ?
+
+##### Deepnote:
+Die Lernnotizen stammen vom Kurs: 
+https://de0a000085dde.de.top.com/training/elearning/MARPLE%20JCL%20101%20-%20Storyline%20output/story.html

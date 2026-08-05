@@ -67,7 +67,6 @@ JCL --------------------------------------------------> JES (Job Entry-Subsystem
 2. Task Manager (Exec Statement)
     -- ruft -->
 3. Datei Manager (DD-Statements)
-
 ### Syntax REGELN
 //SCHRITT1 EXEC PGM=PGCE4711,REGION=4M
 //* Kommentare
@@ -139,7 +138,7 @@ Dateimanager will wissen wo er das Pgm finden soll.
     a. Datei (Bibliothek): enthält viele Sequentiale Datei die sich Member nennt.(Einzel-PS-Files)
         DSN=MY.PDS.DATASET
         DSN=MY.PDS.DATASET(BIRNE)
-      Benennung der DSN  
+    ** Benennung der DSN ** 
     * klein-groß schreiben spielt keine Rolle.
     * jeder qualifier dürfen max. 8-stellig sein. (alphanumerisch + Sonderzeichen($,#,§))
     * max. 44 stellig inkl. Punkten
@@ -164,18 +163,96 @@ DD-Karte Minimum zur Dateianlage
 //          SPACE=...,MGMTCLAS=...
 
 ### DSN: Dateinamen
-### DISP; Basis-Disposition: sollte nebenbei Prozesse laufen dürfen
-    a. (default) NEW : Neuanlage, DS noch nicht vorhanden. Solange dieser Job läuft, kann kein anderer Prozess das DS zugreifen.
+### DISP; Basis-Disposition: sollte nebenbei Prozesse laufen dürfen, Modis bei normalem oder abnormalem Beenden
+    ** JCL erlaubt 3 aufeinmal.
+    DISP=([status][,normal-termination-disp][,abnormal-termination-disp(beim Abend)])
+#### Status
+    a. NEW ***(Default)*** : Neuanlage, DS noch nicht vorhanden. Solange dieser Job läuft, kann kein anderer Prozess das DS zugreifen.
     b. OLD : exlusive Zuordnung zum aktuellen Prozess. DS vorhanden, kein anderer Prozess lesen/schreiben soll. >> typisch bei Schreibvorgänge
     c. SHR : alle Prozesse, die das DS mit sHR ansprechen, dürfen sie nutzen. DS vorhanden, alle dürfen die Datei nutzen >> typisch wenn nur gelesen wird.
     d. MOD : Bei Schreibvorgängen wird hinten an die Datei geschrieben. DS vorhanden, exkl. Zugriff. >> typisch wenn Dateien (zB. Log Dateien) fortgeschrieben werden.
-    DISP=([status][,nromal-termination-disp][,abnormal-termination-disp(Abend)])
-
+#### Normal-Termination-Disposition            
+    a. DELETE ***(Default)*** : Datei wird gelöscht; Empfohlen wenn Datei entfallen kann
+    b. KEEP ***(Default)*** : eine neue Datei wird auf einem Volume angelegt und im Catalog eingetragen; Empfohlen neues DS nach Jobende noch bleiben soll
+    c. PASS : eine neue Datei wird angelegt und bleibt für den Folgestep erhalten; Empfohlen neues DS beim nächsten Step noch da sein soll
+    d. CATLG : eine neue Datei bleibt erhalten nund wird im Catalog eingetragen; Empfohlen neues DS und man sicherstellen will, dass es im Catalog eingetragen ist.
+    e. UNCATLG : Dateieintrag wird nr aus dem Catalog entfernt; Empfohlen : in der GDIS nicht möglich da alle Dataset im Catalog sein müssen.
+#### Abnormal-Termination-Disposition
+    a. DELETE
+    b. KEEP
+    c. CATLG
+    d. UNCATLG
+    ***(Default)*** : entsprechend dem 2. Parameter
+    bei PASS: DELETE für neues, KEEP für bestehendes DS
 ### RECFM: fest/variable Satzlänge, geblock/ungeblock
+#### RECFM Syntax
+RECHFM={U     }  [A]        >> undefinierte Satzlänge  A >> Sätze enthalten ISO/ANSI control characters
+       {V     }  [M]        >> variable Satzlänge   M >> Sätze enthalten machine code control characters
+       {VB    }             B >> Datei soll geblockt sein
+       {VS    }             S >> Dataset darf über mehrere Volumes laufen
+       {VBS   }             
+       {F     }             >> feste Satzlänge
+       {FB    }
+* Beispiele:
+//DD1B DD DSNAME=EVER,DISP=(NEW,KEEP),UNIT=3380,
+//        RECFM=FB,LRECL=326,SPACE=(23472,(200,40))
+
+//DD2  DD  DSNAME=FIX,UNIT3420-1,VOLUME=SER=44889,
+//         DISP=(OLD,,DELETE)
 ### LRECL: Satzlänge
+in BYTES eingegeben.
+LRECL=(nnnnnK)      >> Anzahl der Bytes pro Satz
+Beispiel:
+//DS1 DD DISP=(NEW,CATLG),RECFM=FBA,LRECL=133,...
 ###  BLKSIZE=0 : Device abgestimmte Blockgröße
+Falls RECFM als Blocked eingegeben, sollte default Wert für BLKSIZE=0 sein.
 ###  SPACE: primary/secondary Größenangaben
-###  MGMTCLAS; Management Classe: Sicherung, Lebenszeit...
+wie viel Speichergröße wollen wir für die Datei im Mainframe beansprechen möchten? 
+###  MGMTCLAS; Management Class: Sicherung, Lebenszeit...
+Verlagerung der Dateien nach bestimmten Kriterien. Automatische Löschung von Dateien nach bestimmten Kriterien(Alter, mangelnde Nutzung), automatische Freigabe von ungenutzen Platz von Dateien. Beispiel MGMTCLAS=MCS30010,...
+### UNIT Syntax
+UNIT=WORK : Workplattenpool, nach einer Weile werden die Dateien automatisch gelöscht.
+     SYSDA : normaler Plattenpool 
+     VIO : Virtuelle IO, direkt in Speicher gehalten werden
+     TAPE : Kasetten.
+### Temporäre Dateien / Work Dateien
+//DS1 DD DISP=NEW,RECFM=FBA,LRECL=133,UNIT=WORK,
+//       SPACE=(CYL,(1,1))
+** unbenannte Datei: DSN= wird weggelasen, weil nur dieser Step auf diese Datei zugreift.
+
+//DS1 DD DISP=(NEW,PASS), RECFM=FBA,LRECL=133,UNIT=WORK,
+//       DSN=&&TEMP1,SPACE=(CYL,(1,1))
+** Datei für Folgestep wird am Ende des Jobs die Datei gelöscht.
+
+//DS1 DD DISP=(NEW,PASS),RECFM=FBA,LRECL=133,UNIT=WORK,
+//       DSN=MY.WORK.DATEI,SPACE=(CYL,(1,1))
+** PASS sichert die Datei für Folgestep aber nicht über das Jobende hinweg. 
+
+//DS1 DD DISP=(NEW,KEEP),RECFM=FBA,LRECL=133,UNIT=WORK,
+//       DSN=MY.WORK.DATEI,SPACE=(CYL,(1,1))
+** KEEP sorgt für die Kategorisierung und damit dem dauerhaften Erhalt der Datei auch nach Ende des Jobs. Die Datei verschwindet also erst bei Aufräumarbeiten im Work-Pool oder wenn man zusätliche Angaben macht wie: RETPD=10 (retain period 10days.), oder eine entsprechende Managementsklasse(MGMTCLAS).
+### LIKE Syntax
+übernimmt die Vorlage-Datei.
+1. Dataset Organization
+    a. Record organization (RECORG)
+        OR
+    b. Record Format (RECFM)
+2. Record Length (LRECL)
+3. Key Length (KEYLEN)
+4. Key Offset (KEYOFF)
+5. Type (DSNTYPE)
+6. Space allocation (AVGREC and SPACE)
+
+//SMSDS6 DD DSNAME=MYDS6.PGM,LIKE=MYDSCAT.PGM,DISP=(NEW,KEEP)
+
+//DD1 DD DSN=MY.PDSE.DATEI,DISP=(,CATLG),
+//       LIKE=MY.PDS.DATEI,
+//       DSORG=PO,DSNTYPE=LIBRARY,
+//       MGMTCLAS=MCS19999
+! BLKSIZE und MGMTCLAS werden nicht übernommen !
+### VOL Syntax : 
+auf welches Device sollte die Datei angelegt werden soll.
+heutzutage spielt fast gar keine Rolle mehr, solange man nicht auf bestimmte/s Kassette/Device zugreifen will.
 ## Conditionscode-Steuerung
 ## Utuilities
 ## Spezielle Pgms => spezielle Bedürfnisse

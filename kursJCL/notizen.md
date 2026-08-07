@@ -131,7 +131,7 @@ Dateimanager will wissen wo er das Pgm finden soll.
 //* ------------------- Batch-Programm ausfuehren ----------
 //PGTQ0012 EXEC GOBTCH,MBR=PGTQ0012,SYSKZ='1'
 //GO.MANDANT DD DISP=SHR,DSN=P110003.CGMAND.VK(CGMAND00)
-![Pgm-Test-Jobs_beiuns](image.png)
+![image](./image.png)
 ## Einführung in Dateiarten
 1. DSORG : Physical Sequential (PS) : eine Zeile nach anderer.
 2. DSORG: Partitioned Dataset (PDS/PDSE) : 
@@ -254,11 +254,248 @@ UNIT=WORK : Workplattenpool, nach einer Weile werden die Dateien automatisch gel
 auf welches Device sollte die Datei angelegt werden soll.
 heutzutage spielt fast gar keine Rolle mehr, solange man nicht auf bestimmte/s Kassette/Device zugreifen will.
 ## Conditionscode-Steuerung
-## Utuilities
-## Spezielle Pgms => spezielle Bedürfnisse
+*Bei Produktionsabläufen: jeder Step ein eigener Job
+* Abhängigkeiten werden in TWS definieren.
+### IF/ELSE/ENDIF Steuerung
+if/else/endif dürfen nicht direkt hinter // stehen. Nach // sollten IF/ELSE/ENDIF einen Name als Stepname haben, wie bei //[JobName] JOB
+Die Namen müssen nicht unbedingt wie bei IF-Step gleiche Namen haben.
+** Beispiel 1 **
+//[namefuerIF] IF STEP1.RC=0 THEN
+//STEP2 EXEC ...
+....
+//[namefuerELSE]
+//STEP3 EXEC ...
+....
+//[namefuerENDIF] ENDIF
+||-------                                                                     
+||* prüft ob der Step gestartet wurde:                          
+||StepName.Run                                                    
+||StepName.Run=True                                             
+||* prüft ob irgendeiner Vor-Step abnormal beendet wurde:       
+||Abend                                                             
+||Abend=True                                                    
+||-------                                                                       
+||* prüft ob im Step abnormaler Stop vorgekommen ist:                   
+||StepName.Abend                                                                             
+||StepName.Abend=True                                            
+||-------                                                   
+||* reagiert nur bei bestimmten AbendsCodes                                     
+||AbendCC=abendcode                                                     
+||stepname.Abendcc=abendcode                                            
+||-------                                                                   
+** Beispiel 2 **                                                  
+// IF RC NE 0 OR ABEND THEN 
+//STEP4 EXEC ...
+// ENDIF     
+// IF ABEND=TRUE THEN
+//STEP5 EXEC ...
+....
+// ENDIF                                       
+
+** Beispiel 3 **
+//STEP0 EXEC PGM=PGM1
+//iftest1   if (rc<8>) then
+//step1 exec pgm=iefbr14
+//report exec pgm=reptpgm
+//elsetest   else
+//errorstp  exec pgm=errpgm
+//endif1     endif
+//nextstep  exec pgm=pgm2
+
+** Beispiel 4 **
+//step1 exec pgm=...
+//iftest1  if abend   then
+//step2 exec pgm=...
+//step3 exec pgm=...
+//else1    else
+//step4 exec pgm=...
+//endif1  endif
+
+### COND = Negativsteuerung (Skip):
+Wenn COND-Bedingung wahr ist -> Step wird nicht ausgeführt.
+
+Syntax:
+COND=(code,op[,stepname])
+oder
+COND=((code,op[,stepname]),(code,op[,stepname]),...,EVEN|ONLY)
+Operatoren: EQ, NE, LT, LE, GT, GE
+
+(8,LE) <= less equal
+(0,NE) >= not equal
+(0,EQ) == equal
+LT less than
+GT greater than
+
+[,EVEN] - auch wenn es davor einen Abend gegeben hat.
+[,ONLY] - nur RC(step)=Abend und nur dann führe den Step aus.
+
+** Beispiel **
+//Step4 exec cond=((0,NE),EVEN)     //* führe den Step aus auch wenn ein Abend vorkommt.
+....
+//Step5 exec cond=only          //* führe den Step aus nur wenn ein Abend vorkommt.
+....
+
+_______
+Aufgabe:
+_______
+//STEP1    EXEC PGM=IDCAMS
+//SYSPRINT DD SYSOUT=*
+//SYSIN    DD *
+  SET MAXCC = 0
+/*
+
+//* Step2 nur wenn bisher RC=0
+//STEP2    EXEC PGM=IDCAMS,COND=(0,NE)
+//SYSPRINT DD SYSOUT=*
+//SYSIN    DD *
+  SET MAXCC = 0
+/*
+
+//* Step3 nur wenn STEP2 RC=0
+//STEP3IF  IF (STEP2.RC = 0) THEN
+//STEP3    EXEC PGM=IDCAMS
+//SYSPRINT DD SYSOUT=*
+//SYSIN    DD *
+  SET MAXCC = 0
+/*
+//STEP3IF  ENDIF
+
+//* Step4 nur wenn STEP2 RC<>0
+//STEP4    EXEC PGM=IDCAMS,COND=(0,EQ,STEP2)
+//SYSPRINT DD SYSOUT=*
+//SYSIN    DD *
+  SET MAXCC = 0
+/*                                          
+        
+## Utilities
+- https://it-wiki.generali-gruppe.de/spaces/B0845/pages/577672556/JCL+Job-Aids+-+Beispiele
+### IEFBR14: 
+*Branch14, dh, ein Pgm was nichts tut, sondern direkt zurückspringt
+*praktisch zB. wenn man in einem Setup nur Dateien anlegen und löschen will.
+
+### IEBGENER:
+*Schreiben oder Kopieren auf ein sequentielles Dataset
+*praktisch zB. zum Drucken. (=Copy auf ein File im Spool)
+** Beispiel **
+//step1     exec pgm=IEBGENER
+//sysprint  dd sysout=*             //*meist für die Protokollmessages
+//sysin     dd dummy                // dd dummy oder Steuerkarten
+//sysut1    dd dsn=alt.data,disp=shr        //*eingegebene Datei/Member/Instream-Daten
+//sysut2    dd dsn=neu.data,disp=old        //*ausgegebene Datei/Member/Instream-Daten
+
+### IEBCOPY:
+*Kopieren vin PDS-Membern
+*PDS-Datei komprimieren durch Copy ins gleiche File
+** Beispiel **
+//COPMEMB JOB (ACCOUNTING),CLASS=Z,MSGCLASS=0                         
+//COPMEMB1 EXEC PGM=IEBCOPY    //*UM VSAM-DATEI/DS ZU KOPIEREN.       
+//SYSPRINT DD SYSOUT=*                                                
+//SYSUT1    DD DSN=I003427.JCL101.CNTL,DISP=SHR                       
+//*                          DATEI/MEMBER ZU KOPIEREN                 
+//SYSUT2    DD DSN=I003427.MEMB.COPY,DISP=SHR                                                                 
+//*                          ERSTELLUNG DER HINKOPIERTE DATEI/MEMBER                 
+//SYSIN DD *                                                          
+--------------------------------------------
+** falls die hinkopierte DS noch nicht existiert, sollte dann JCL bisschen anders aussehen zwar;
+//COPMEMB JOB (ACCOUNTING),CLASS=Z,MSGCLASS=0                          
+//COPMEMB1 EXEC PGM=IEBCOPY    //*UM VSAM-DATEI/DS ZU KOPIEREN.        
+//SYSPRINT DD SYSOUT=*                                                 
+//SYSUT1    DD DSN=I003427.JCL101.CNTL,DISP=SHR                        
+//*                          DATEI/MEMBER ZU KOPIEREN                  
+//SYSUT2    DD DSN=I003427.MEMB.COPY,DISP=OLD                          
+//             (OLD,KEEP),                                             
+//*                          ERSTELLUNG DER HINKOPIERTE DATEI/MEMBER   
+//             SPACE=(TRK,(1,1)),RECFM=FB,LRECL=80                     
+//SYSIN DD *                                                           
+
+sysut1/sysut2 oder beliebige Namen.
+
+### SORT:
+*auch Syncsort genannt, möchtiges, extrem schnlles Sortierprogramm
+*beliebt zur Datenaufbereitung
+*sortieren,mergen,summieren, uvm.
+
+### IDCAMS:
+*Anlage/Verwaltung von VSAM Dateien: KSDS(Key sequential Dataset), ESDS(Entry sequential Dataset), RRDS(Relative Record Dataset), LDS(Linear Dataset), GDG(Generation Data Group)
+*Verwaltung von Datei-Aliasen
+*Löschung von jeder Art von Datei oder Member
+*Änderung einiger Dateiattribute, wie zB. der Managementsklasse
+*Ziehen von Dateilisten aus dem Catalog.
+** Beispiel **
+//DELMEM exec pgm=idcams
+//sysprint dd sysout=*
+//sysin dd *
+    delete 'userid.MEIN.PSDS(*)'
+//
+
+### Datenaufbereiten mit SyncSort
+- Sort
+- Join/Merge
+- Omit
+- Split Up
+- Format
+- Count / Add Up
+
 ## Prodezuren verstehen
+Prozedur=JCL mit Variablen
+ein JCL-Prozedur sieht ungefähr so aus:
+//MYPROC    PROC VAR1=XXXXX,VAR3=,
+//               VAR2=BBBB
+//....   exec .... &var1 ....
+//....   dd   .... &var2 ....
+//....   dd   ...............
+//&var4 exec  ...............
+//....   dd   ... &var2......
+//....   dd   ...............
+//       PEND
+
+PROC-Nutzung:
+//.... JOB  .........
+//.... exec myproc,var2=YYYYY,
+//          var3=zzz,var4=aaa
+
+### Standard-Prozeduren für Programme
+1. GOBTCH : für einfache Pgms ohne DB2 und ohne IMS
+2. DB2BTCH : für Pgms mit DB2
+3. DLIUBAT : für Programme mit IMS ohne DB2
+4. DLIUDB2 : für Programme mit IMS und DB2
+
+### Parameter aller Standard-Procs
+//gobtch    proc mbr=tempname,
+//          syskz='1',
+//          swstand='0',
+//          sim='nein',
+//          sout='*',
+//          ldsn1='p770001.b0dummy.load',       //*zusätliche Dateien werden
+//          ldsn2='p770001.b0dummy.load',       //*in diese Steplibverkettung
+//          ldsn3='p770001.b0dummy.load',       //* eingefügt.
+//          ldsn4='p770001.b0dummy.load',
+...
+
 ## Produktions-JCL, eine andere Welt ?
+Test-JCL
+Job
+Step1
+temp. Dateien
+Step2
+Spooloutput
+Prüfung unter IOF
+
+-----------------
+Prod-JCL
+Job1
+persistente DSe
+Job2
+persistente DSe
+Prüfung unter IOF + Beta
+
+Größter Unterschied zw. Test und Prod-JCL:
+falls ein Vorstep ausfällt/abgebrochen, wird der Job sich nicht komplett von vornbeginnen sondern wird nur fehlgeschlagener Step wiederholt.
+
+## XINFO
+mit xinfo command kann man in tws/jcl Welt einsteigen =)
+
 
 ##### Deepnote:
-Die Lernnotizen stammen vom Kurs: 
+Die Lernnotizen stammen vom e-Kurs: 
 https://de0a000085dde.de.top.com/training/elearning/MARPLE%20JCL%20101%20-%20Storyline%20output/story.html
